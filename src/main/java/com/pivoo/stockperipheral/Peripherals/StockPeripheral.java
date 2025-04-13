@@ -1,42 +1,33 @@
 package com.pivoo.stockperipheral.Peripherals;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSerializer;
 import com.pivoo.stockperipheral.CCTweakedCreatestockperipheral;
 import com.simibubi.create.content.logistics.BigItemStack;
 import com.simibubi.create.content.logistics.packager.InventorySummary;
 import com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBehaviour;
 import com.simibubi.create.content.logistics.packagerLink.LogisticsManager;
+import com.simibubi.create.content.logistics.redstoneRequester.RedstoneRequesterEffectPacket;
 import com.simibubi.create.content.logistics.stockTicker.PackageOrderWithCrafts;
 import dan200.computercraft.api.lua.LuaFunction;
-import dan200.computercraft.api.lua.LuaTable;
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
+import net.createmod.catnip.platform.CatnipServices;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import com.simibubi.create.content.logistics.packagerLink.PackagerLinkBlockEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import org.jspecify.annotations.Nullable;
+import net.minecraft.server.level.ServerLevel;
 
 import java.util.*;
 
-import dan200.computercraft.shared.util.NBTUtil;
 
-//public class StockPeripheral implements IPeripheral {
 public class StockPeripheral implements IPeripheral {
     private final PackagerLinkBlockEntity _stockLink;
 
     public StockPeripheral(PackagerLinkBlockEntity stockLink){
         this._stockLink = stockLink;
-    }
-
-    public IPeripheral getPeripheral(){
-        return (IPeripheral) this;
     }
 
     public PackagerLinkBlockEntity getStockLink() {
@@ -73,34 +64,20 @@ public class StockPeripheral implements IPeripheral {
 
     //region Lua Methods
 
-    @LuaFunction
-    public String helloWorld(){
-        return "Hello World";
-    }
+//    @LuaFunction(mainThread = true)
+//    public void playEffect(){
+//        this.getStockLink().playEffect();
+//    }
 
-    @LuaFunction
-    public void playEffect(){
-        this.getStockLink().playEffect();
-    }
-
-    @LuaFunction
-    public String getData(){
-        Level level = this.getStockLink().getLevel();
-        return this.getStockLink().saveWithoutMetadata(level.registryAccess()).toString();
-    }
-
-    @LuaFunction
+    @LuaFunction(mainThread = true)
     public String getFreq(){
         return getFrequencyID().toString();
     }
 
-    @LuaFunction
+    @LuaFunction(mainThread = true)
     public Object getSummary(){
         CCTweakedCreatestockperipheral.Log(this.getFrequencyID().toString());
         InventorySummary summary = getAccurateSummary();
-
-//        CCTweakedCreatestockperipheral.Log(gson.toJson(summary));
-//        for(for )
         List<Object> result = new ArrayList<>();
         for(BigItemStack stack: summary.getStacks()){
             Map<String,Object> map = new HashMap<>();
@@ -113,7 +90,7 @@ public class StockPeripheral implements IPeripheral {
         return result;
     }
 
-    @LuaFunction
+    @LuaFunction(mainThread = true)
     public boolean sendRequest(String resource, int count, String address){
         try{
         List<BigItemStack> order = new ArrayList<>();
@@ -135,9 +112,6 @@ public class StockPeripheral implements IPeripheral {
     //endregion
 
     private UUID getFrequencyID(){
-//        Level level = this.getStockLink().getLevel();
-//        CompoundTag tag =  this.getStockLink().saveWithoutMetadata(level.registryAccess());
-//        return tag.getUUID("Freq");
         return this.getStockLink().behaviour.freqId;
     }
 
@@ -149,13 +123,12 @@ public class StockPeripheral implements IPeripheral {
 
     private InventorySummary getAccurateSummary(){
         return LogisticsManager.getSummaryOfNetwork(this.getFrequencyID(), true);
-//        return this.getStockLink()
     }
 
     private boolean broadcastPackageRequest(List<BigItemStack> items, String address){
         PackageOrderWithCrafts order = PackageOrderWithCrafts.simple(items);
         CCTweakedCreatestockperipheral.Log(this.getFrequencyID().toString());
-        return LogisticsManager.broadcastPackageRequest(
+        boolean wasSuccess = LogisticsManager.broadcastPackageRequest(
                 this.getFrequencyID(),
                 LogisticallyLinkedBehaviour.RequestType.REDSTONE,
                 order,
@@ -163,5 +136,13 @@ public class StockPeripheral implements IPeripheral {
                 address
 
         );
+        //TODO: figure out how to play confirmation sound, maybe even animate the stock link
+//        Level level = this.getStockLink().getLevel();
+//        if (level instanceof ServerLevel serverLevel){
+//            CatnipServices.NETWORK.sendToClientsAround(serverLevel, this.getStockLink().getBlockPos(), 32, new RedstoneRequesterEffectPacket(this.getStockLink().getBlockPos(), wasSuccess));
+//        }
+
+
+        return wasSuccess;
     }
 }
